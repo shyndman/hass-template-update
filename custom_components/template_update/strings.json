@@ -6,24 +6,5 @@
                 "description": "Set up a template update entity"
             }
         }
-    },
-    "entity": {
-        "update": {
-            "name": "{name}",
-            "state_attributes": {
-                "installed_version": {
-                    "name": "Installed version"
-                },
-                "latest_version": {
-                    "name": "Latest version"
-                },
-                "release_notes": {
-                    "name": "Release notes"
-                },
-                "title": {
-                    "name": "Title"
-                }
-            }
-        }
     }
 }
