@@ -1,4 +1,4 @@
-"""Template update integration."""
+"""Platform for template update integration."""
 
 from __future__ import annotations
 
@@ -6,11 +6,8 @@ import logging
 from typing import TYPE_CHECKING, Any, override
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import TemplateError
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.template import Template
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .const import (
     CONF_AUTO_UPDATE,
@@ -27,15 +24,10 @@ from .const import (
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.typing import ConfigType
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
-
-# Error messages
-_INSTALL_NOT_IMPLEMENTED_MSG = "Installation not implemented"
-_NO_ACTION_SPECIFIED_MSG = "No action specified in install_action"
-_INVALID_INSTALL_ACTION_MSG = "Invalid install_action configuration"
-_ERROR_RENDERING_TEMPLATE_MSG = "Error rendering install action: {}"
 
 
 class TemplateUpdateEntity(UpdateEntity):
@@ -68,18 +60,35 @@ class TemplateUpdateEntity(UpdateEntity):
 
         # Set up templates
         _LOGGER.debug("Setting up templates for entity %s", self._attr_name)
-        self._installed_version_template = Template(
-            config[CONF_INSTALLED_VERSION], hass
-        )
-        self._latest_version_template = Template(config[CONF_LATEST_VERSION], hass)
-        self._release_notes_template = Template(
-            config.get(CONF_RELEASE_NOTES, ""), hass
-        )
-        self._title_template = Template(config.get(CONF_TITLE, ""), hass)
-        self._entity_picture_template = Template(
-            config.get(CONF_ENTITY_PICTURE, ""), hass
-        )
-        self._availability_template = Template(config.get(CONF_AVAILABILITY, ""), hass)
+        self._installed_version_template = Template(config[CONF_INSTALLED_VERSION])
+        self._installed_version_template.hass = hass
+
+        self._latest_version_template = Template(config[CONF_LATEST_VERSION])
+        self._latest_version_template.hass = hass
+
+        if CONF_RELEASE_NOTES in config:
+            self._release_notes_template = Template(config[CONF_RELEASE_NOTES])
+            self._release_notes_template.hass = hass
+        else:
+            self._release_notes_template = None
+
+        if CONF_TITLE in config:
+            self._title_template = Template(config[CONF_TITLE])
+            self._title_template.hass = hass
+        else:
+            self._title_template = None
+
+        if CONF_ENTITY_PICTURE in config:
+            self._entity_picture_template = Template(config[CONF_ENTITY_PICTURE])
+            self._entity_picture_template.hass = hass
+        else:
+            self._entity_picture_template = None
+
+        if CONF_AVAILABILITY in config:
+            self._availability_template = Template(config[CONF_AVAILABILITY])
+            self._availability_template.hass = hass
+        else:
+            self._availability_template = None
 
         # Install action configuration
         self._install_action = config.get(CONF_INSTALL_ACTION, {})
@@ -100,12 +109,14 @@ class TemplateUpdateEntity(UpdateEntity):
         try:
             version = str(self._installed_version_template.async_render())
             _LOGGER.debug("Entity %s installed version: %s", self._attr_name, version)
-            return version
-        except (ValueError, TypeError) as err:
-            _LOGGER.error(
-                "Error getting installed version for %s: %s", self._attr_name, err
+        except (ValueError, TypeError):
+            _LOGGER.exception(
+                "Error getting installed version for %s",
+                self._attr_name,
             )
             return None
+        else:
+            return version
 
     @property
     @override
@@ -114,51 +125,65 @@ class TemplateUpdateEntity(UpdateEntity):
         try:
             version = str(self._latest_version_template.async_render())
             _LOGGER.debug("Entity %s latest version: %s", self._attr_name, version)
-            return version
-        except (ValueError, TypeError) as err:
-            _LOGGER.error(
-                "Error getting latest version for %s: %s", self._attr_name, err
+        except (ValueError, TypeError):
+            _LOGGER.exception(
+                "Error getting latest version for %s",
+                self._attr_name,
             )
             return None
+        else:
+            return version
 
     @override
+    @property
     def release_notes(self) -> str | None:
         """Return the release notes."""
+        if not self._release_notes_template:
+            return None
         try:
             notes = str(self._release_notes_template.async_render())
             _LOGGER.debug("Entity %s release notes: %s", self._attr_name, notes)
-            return notes
-        except (ValueError, TypeError) as err:
-            _LOGGER.error(
-                "Error getting release notes for %s: %s", self._attr_name, err
+        except (ValueError, TypeError):
+            _LOGGER.exception(
+                "Error getting release notes for %s",
+                self._attr_name,
             )
             return None
+        else:
+            return notes
 
     @property
     @override
     def title(self) -> str | None:
         """Return the title."""
+        if not self._title_template:
+            return None
         try:
             title = str(self._title_template.async_render())
             _LOGGER.debug("Entity %s title: %s", self._attr_name, title)
-            return title
-        except (ValueError, TypeError) as err:
-            _LOGGER.error("Error getting title for %s: %s", self._attr_name, err)
+        except (ValueError, TypeError):
+            _LOGGER.exception("Error getting title for %s", self._attr_name)
             return None
+        else:
+            return title
 
     @property
     @override
     def entity_picture(self) -> str | None:
         """Return the entity picture."""
+        if not self._entity_picture_template:
+            return None
         try:
             picture = str(self._entity_picture_template.async_render())
             _LOGGER.debug("Entity %s picture: %s", self._attr_name, picture)
-            return picture
-        except (ValueError, TypeError) as err:
-            _LOGGER.error(
-                "Error getting entity picture for %s: %s", self._attr_name, err
+        except (ValueError, TypeError):
+            _LOGGER.exception(
+                "Error getting entity picture for %s",
+                self._attr_name,
             )
             return None
+        else:
+            return picture
 
     @property
     @override
@@ -169,10 +194,14 @@ class TemplateUpdateEntity(UpdateEntity):
         try:
             available = bool(self._availability_template.async_render())
             _LOGGER.debug("Entity %s availability: %s", self._attr_name, available)
-            return available
-        except (ValueError, TypeError) as err:
-            _LOGGER.error("Error getting availability for %s: %s", self._attr_name, err)
+        except (ValueError, TypeError):
+            _LOGGER.exception(
+                "Error getting availability for %s",
+                self._attr_name,
+            )
             return False
+        else:
+            return available
 
     def _render_template(self, template_str: str | Template) -> str | None:
         """Render a template string."""
@@ -192,33 +221,33 @@ class TemplateUpdateEntity(UpdateEntity):
                 template_str,
                 result,
             )
-            return result
-        except TemplateError as err:
+        except TemplateError:
             _LOGGER.exception(
-                "Entity %s error rendering template %s: %s",
+                "Entity %s error rendering template %s",
                 self._attr_name,
                 template_str,
-                err,
             )
             return None
+        else:
+            return result
 
     @override
     async def async_install(
-        self, version: str | None, backup: bool, **kwargs: Any
+        self, version: str | None, *, should_backup: bool = True, **kwargs: Any
     ) -> None:
         """Install an update."""
         _LOGGER.debug(
-            "Entity %s installing update: version=%s, backup=%s, kwargs=%s",
+            "Entity %s installing update: version=%s, should_backup=%s, kwargs=%s",
             self._attr_name,
             version,
-            backup,
+            should_backup,
             kwargs,
         )
 
         # Prepare data for action call
         data = {
             "version": version,
-            "backup": backup,
+            "backup": should_backup,
             **kwargs,
         }
 
@@ -230,7 +259,7 @@ class TemplateUpdateEntity(UpdateEntity):
             )
             return
 
-        action = self._render_template(install_action)
+        action = self._render_template(install_action["action"])
         if not action:
             _LOGGER.error("Entity %s failed to render install action", self._attr_name)
             return
@@ -248,8 +277,8 @@ class TemplateUpdateEntity(UpdateEntity):
 
 
 async def async_setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
+    _hass: HomeAssistant,
+    _config: ConfigType,
     async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:

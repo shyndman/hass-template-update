@@ -11,12 +11,9 @@ from homeassistant.const import (
     CONF_NAME,
     Platform,
 )
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import discovery
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.template import Template
-from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_AUTO_UPDATE,
@@ -33,6 +30,9 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.typing import ConfigType
+
     from .update import TemplateUpdateEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,10 +73,11 @@ def _render_template_value(
     try:
         rendered_value = Template(value, hass).async_render(template_vars)
         _LOGGER.debug("Rendered template: %s -> %s", value, rendered_value)
-        return rendered_value
     except Exception:
         _LOGGER.exception("Error rendering template: %s", value)
         return None
+    else:
+        return rendered_value
 
 
 def _process_template_config(
