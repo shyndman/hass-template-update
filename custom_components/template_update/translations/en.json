@@ -1,0 +1,22 @@
+{
+    "services": {
+        "install": {
+            "name": "Install update",
+            "description": "Install the update for a template update entity.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The entity ID of the update entity to install."
+                },
+                "version": {
+                    "name": "Version",
+                    "description": "The version to install. If not specified, the latest version will be installed."
+                },
+                "backup": {
+                    "name": "Backup",
+                    "description": "Whether to create a backup before installing."
+                }
+            }
+        }
+    }
+}
