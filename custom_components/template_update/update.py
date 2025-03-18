@@ -134,8 +134,8 @@ class TemplateUpdateEntity(UpdateEntity):
         else:
             return version
 
-    @override
     @property
+    @override
     def release_notes(self) -> str | None:
         """Return the release notes."""
         if not self._release_notes_template:
