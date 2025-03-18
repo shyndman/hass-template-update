@@ -1,46 +1,156 @@
-# Notice
+# Template Update for Home Assistant
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+A Home Assistant integration that provides template-based update entities, allowing you to create update entities whose properties are evaluated using templates.
 
-HAVE FUN! 😎
+## Features
 
-## Why?
+- Create update entities with templated properties
+- Support for all standard update entity attributes (installed_version, latest_version, release_notes, etc.)
+- Bulk creation of update entities using the `for_each` pattern
+- YAML-based configuration (no UI flow needed)
+- Template support for all properties
+- Customizable installation actions through templates
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+## Installation
 
-If you are a developer and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+1. Copy the `custom_components/template_update` directory to your Home Assistant's `custom_components` directory
+2. Restart Home Assistant
 
-## What?
+## Configuration
 
-This repository contains multiple files, here is a overview:
+Add the following to your `configuration.yaml`:
 
-File | Purpose | Documentation
--- | -- | --
-`.devcontainer.json` | Used for development/testing with Visual Studio Code. | [Documentation](https://code.visualstudio.com/docs/remote/containers)
-`.github/ISSUE_TEMPLATE/*.yml` | Templates for the issue tracker | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository)
-`custom_components/integration_blueprint/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
-`CONTRIBUTING.md` | Guidelines on how to contribute. | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)
-`LICENSE` | The license file for the project. | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)
-`README.md` | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)
-`requirements.txt` | Python packages used for development/lint/testing this integration. | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
+```yaml
+template_update:
+  # Single update entity
+  - vacuum_firmware:
+      name: "Vacuum Firmware"
+      installed_version: >-
+        {{ states('sensor.vacuum_current_version') }}
+      latest_version: >-
+        {{ states('sensor.vacuum_latest_version') }}
+      release_notes: >-
+        {{ states('sensor.vacuum_release_notes') }}
+      title: "Vacuum Firmware Update"
+      entity_picture: >-
+        {{ states('sensor.vacuum_icon') }}
+      availability: >-
+        {{ states('sensor.vacuum_online') == 'online' }}
+      install_action:
+        action: vacuum.firmware_update
+        target:
+          entity_id: vacuum.my_vacuum
 
-## How?
+  # Multiple updates using for_each
+  - device_updates:
+      for_each:
+        - device_id: vacuum_1
+          name: "Vacuum 1"
+          model: premium
+        - device_id: vacuum_2
+          name: "Vacuum 2"
+          model: standard
+      update:
+        name: "{{ item.name }} Firmware"
+        installed_version: >-
+          {{ states('sensor.vacuum_' + item.device_id + '_version') }}
+        latest_version: >-
+          {{ states('sensor.vacuum_' + item.device_id + '_latest_version') }}
+        release_notes: >-
+          {{ states('sensor.vacuum_' + item.device_id + '_release_notes') }}
+        title: "{{ item.name }} Update"
+        availability: >-
+          {{ states('binary_sensor.vacuum_' + item.device_id + '_online') == 'on' }}
+        install_action:
+          action: mqtt.publish
+          data:
+            topic: >-
+              vacuum/{{ item.device_id }}/cmd/update
+            payload: >-
+              {
+                "model": "{{ item.model }}",
+                "device_id": "{{ item.device_id }}",
+                "command": "start_update"
+              }
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-1. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-1. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-1. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-1. Run the `scripts/develop` to start HA and test out your new integration.
+  # Using template-based install action
+  - system_update:
+      name: "System Update"
+      installed_version: >-
+        {{ states('sensor.current_version') }}
+      latest_version: >-
+        {{ states('sensor.latest_version') }}
+      install_action:
+        action: >-
+          {% if is_state('switch.maintenance_mode', 'off') %}
+            script.start_update_in_maintenance_mode
+          {% else %}
+            script.start_update
+          {% endif %}
+        data:
+          system: main
 
-## Next steps
+  # With auto-update enabled
+  - auto_updating_firmware:
+      name: "Auto-Updating Firmware"
+      installed_version: >-
+        {{ states('sensor.firmware_version') }}
+      latest_version: >-
+        {{ states('sensor.latest_firmware') }}
+      auto_update: true
+      install_action:
+        action: script.update_firmware
+```
 
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon) to https://github.com/home-assistant/brands.
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+### Configuration Variables
+
+| Variable | Type | Required | Description |
+|----------|------|----------|-------------|
+| name | string | yes | The name of the update entity |
+| installed_version | template | yes | Template for the currently installed version |
+| latest_version | template | yes | Template for the latest available version |
+| release_notes | template | no | Template for the release notes |
+| title | template | no | Template for the update title |
+| entity_picture | template | no | Template for the entity picture |
+| device_class | string | no | The device class of the update entity |
+| availability | template | no | Template for the entity availability |
+| install_action | object | no | Action to perform when installing the update |
+| auto_update | boolean | no | Whether the entity has auto-update enabled. If true, skipping updates is not allowed. Defaults to false |
+
+### Install Action Format
+
+The `install_action` configuration uses a standard Home Assistant action format:
+
+```yaml
+install_action:
+  action: domain.action_name
+  target:
+    entity_id: entity.to_call
+  data:
+    parameter: value
+    another_parameter: >-
+      {{ template_value }}
+```
+
+## Development
+
+This project uses:
+- Python 3.13
+- uv for dependency management
+- ruff for linting
+- hatchling for building
+
+### Setup Development Environment
+
+1. Clone this repository
+2. Open in VS Code with Dev Containers
+3. Run `scripts/setup` to set up the development environment
+4. Run `scripts/develop` to start Home Assistant with this integration
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

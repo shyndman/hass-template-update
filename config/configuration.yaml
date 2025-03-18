@@ -9,4 +9,65 @@ homeassistant:
 logger:
   default: info
   logs:
-    custom_components.integration_blueprint: debug
+    custom_components.template_update: debug
+
+# Test inputs
+input_text:
+  vacuum_latest_version:
+    name: "Vacuum Latest Version"
+    initial: "1.2.0"
+  vacuum_release_notes:
+    name: "Vacuum Release Notes"
+    initial: "Bug fixes and improvements"
+  system_current_version:
+    name: "System Current Version"
+    initial: "2023.12.0"
+  system_latest_version:
+    name: "System Latest Version"
+    initial: "2024.1.0"
+
+input_boolean:
+  maintenance_mode:
+    name: "Maintenance Mode"
+    initial: off
+
+# Test scripts
+script:
+  test_update_vacuum:
+    sequence:
+      - delay:
+          seconds: 2
+      - action: notify.persistent_notification
+        data:
+          title: "Vacuum Update"
+          message: "Vacuum firmware update completed"
+
+  test_update_system:
+    sequence:
+      - delay:
+          seconds: 2
+      - action: notify.persistent_notification
+        data:
+          title: "System Update"
+          message: "System update completed in normal mode"
+
+  test_update_system_with_maintenance:
+    sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.maintenance_mode
+      - delay:
+          seconds: 2
+      - action: notify.persistent_notification
+        data:
+          title: "System Update"
+          message: "System update completed in maintenance mode"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.maintenance_mode
+
+# Template Update Configuration
+template_update:
+  - name: "Test Update"
+    installed_version: "{{ '1.0.0' }}"
+    latest_version: "{{ '2.0.0' }}"

@@ -1,0 +1,10 @@
+install:
+  description: Install the update
+  fields:
+    entity_id:
+      description: The entity ID of the update entity
+      example: update.vacuum_firmware
+      selector:
+        entity:
+          domain: update
+          integration: template_update
