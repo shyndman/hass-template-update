@@ -14,6 +14,7 @@ from homeassistant.const import (
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import discovery
 from homeassistant.helpers.template import Template
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_AUTO_UPDATE,
@@ -72,7 +73,6 @@ TEMPLATE_UPDATE_FOR_EACH_SCHEMA = vol.Schema(
     }
 )
 
-
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.All(
@@ -82,6 +82,68 @@ CONFIG_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the template update integration."""
+    _LOGGER.debug("Setting up template_update integration with config: %s", config)
+
+    if DOMAIN not in config:
+        _LOGGER.debug("No configuration found for %s", DOMAIN)
+        return True
+
+    entities = []
+    domain_config = config[DOMAIN]
+    _LOGGER.debug("Processing %d template update configurations", len(domain_config))
+
+    for update_config in domain_config:
+        if CONF_FOR_EACH in update_config:
+            # Handle for_each configuration
+            for_each_node = update_config[CONF_FOR_EACH]
+            for_each_entities = _process_for_each_config(
+                hass,
+                for_each_node[CONF_ELEMENTS],
+                for_each_node[CONF_UPDATE],
+            )
+            entities.extend(for_each_entities)
+        else:
+            # Handle single entity configuration
+            _LOGGER.debug("Processing single entity configuration: %s", update_config)
+            entity = _create_entity_from_config(hass, update_config)
+            entities.append(entity)
+            _LOGGER.debug(
+                "Added single template update entity: %s",
+                update_config.get(CONF_NAME, "unnamed"),
+            )
+
+    await _load_entities(hass, entities, config)
+    return True
+
+
+def _process_for_each_config(
+    hass: HomeAssistant, loop_elements: list, update_template: dict
+) -> list[TemplateUpdateEntity]:
+    """Process a for_each configuration, creating entities for each item."""
+    entities = []
+    _LOGGER.debug(
+        "Processing for_each configuration with %d items and template: %s",
+        len(loop_elements),
+        update_template,
+    )
+
+    for item in loop_elements:
+        _LOGGER.debug("Processing for_each item: %s", item)
+        template_vars = {"item": item}
+
+        # Create and process the configuration
+        entity_config = _process_template_config(hass, update_template, template_vars)
+
+        # Create and add the entity
+        entity = _create_entity_from_config(hass, entity_config, item.get("device_id"))
+        entities.append(entity)
+        _LOGGER.debug("Added entity: %s", entity_config.get(CONF_NAME))
+
+    return entities
 
 
 def _render_template_value(
@@ -132,32 +194,6 @@ def _create_entity_from_config(
     return TemplateUpdateEntity(hass, entity_config)
 
 
-def _process_for_each_config(
-    hass: HomeAssistant, loop_elements: list, update_template: dict
-) -> list[TemplateUpdateEntity]:
-    """Process a for_each configuration, creating entities for each item."""
-    entities = []
-    _LOGGER.debug(
-        "Processing for_each configuration with %d items and template: %s",
-        len(loop_elements),
-        update_template,
-    )
-
-    for item in loop_elements:
-        _LOGGER.debug("Processing for_each item: %s", item)
-        template_vars = {"item": item}
-
-        # Create and process the configuration
-        entity_config = _process_template_config(hass, update_template, template_vars)
-
-        # Create and add the entity
-        entity = _create_entity_from_config(hass, entity_config, item.get("device_id"))
-        entities.append(entity)
-        _LOGGER.debug("Added entity: %s", entity_config.get(CONF_NAME))
-
-    return entities
-
-
 async def _load_entities(
     hass: HomeAssistant, entities: list[TemplateUpdateEntity], config: ConfigType
 ) -> None:
@@ -178,39 +214,3 @@ async def _load_entities(
         _LOGGER.debug("Successfully loaded template update entities")
     except Exception:
         _LOGGER.exception("Error loading template update entities")
-
-
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the template update integration."""
-    _LOGGER.debug("Setting up template_update integration with config: %s", config)
-
-    if DOMAIN not in config:
-        _LOGGER.debug("No configuration found for %s", DOMAIN)
-        return True
-
-    entities = []
-    domain_config = config[DOMAIN]
-    _LOGGER.debug("Processing %d template update configurations", len(domain_config))
-
-    for update_config in domain_config:
-        if CONF_FOR_EACH in update_config:
-            # Handle for_each configuration
-            for_each_node = update_config[CONF_FOR_EACH]
-            for_each_entities = _process_for_each_config(
-                hass,
-                for_each_node[CONF_ELEMENTS],
-                for_each_node[CONF_UPDATE],
-            )
-            entities.extend(for_each_entities)
-        else:
-            # Handle single entity configuration
-            _LOGGER.debug("Processing single entity configuration: %s", update_config)
-            entity = _create_entity_from_config(hass, update_config)
-            entities.append(entity)
-            _LOGGER.debug(
-                "Added single template update entity: %s",
-                update_config.get(CONF_NAME, "unnamed"),
-            )
-
-    await _load_entities(hass, entities, config)
-    return True
