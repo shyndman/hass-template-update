@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, Any, Literal, override
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.exceptions import TemplateError
@@ -24,8 +24,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
-    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+    from homeassistant.helpers.typing import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,40 +57,27 @@ class TemplateUpdateEntity(UpdateEntity):
             "Entity %s auto_update: %s", self._attr_name, self._attr_auto_update
         )
 
-        def config_template(key: str) -> Template:
-            return Template(str(config[key] or ""))
+        _nodef = "<NODEF>"
+
+        def config_template(
+            key: str, default: Template | None | Literal["<NODEF>"] = _nodef
+        ) -> Template | Any:
+            if key in config:
+                return Template(str(config[key] or ""), hass=hass)
+            if default is _nodef:
+                msg = f"Template for {key} not found"
+                raise ValueError(msg)
+            return default
 
         # Set up templates
         _LOGGER.debug("Setting up templates for entity %s", self._attr_name)
         self._installed_version_template = config_template(CONF_INSTALLED_VERSION)
-        self._installed_version_template.hass = hass
-
         self._latest_version_template = config_template(CONF_LATEST_VERSION)
-        self._latest_version_template.hass = hass
 
-        if CONF_RELEASE_NOTES in config:
-            self._release_notes_template = config_template(CONF_RELEASE_NOTES)
-            self._release_notes_template.hass = hass
-        else:
-            self._release_notes_template = None
-
-        if CONF_TITLE in config:
-            self._title_template = config_template(CONF_TITLE)
-            self._title_template.hass = hass
-        else:
-            self._title_template = None
-
-        if CONF_ENTITY_PICTURE in config:
-            self._entity_picture_template = config_template(CONF_ENTITY_PICTURE)
-            self._entity_picture_template.hass = hass
-        else:
-            self._entity_picture_template = None
-
-        if CONF_AVAILABILITY in config:
-            self._availability_template = config_template(CONF_AVAILABILITY)
-            self._availability_template.hass = hass
-        else:
-            self._availability_template = None
+        self._release_notes_template = config_template(CONF_RELEASE_NOTES, default=None)
+        self._title_template = config_template(CONF_TITLE, default=None)
+        self._entity_pic_template = config_template(CONF_ENTITY_PICTURE, default=None)
+        self._availability_template = config_template(CONF_AVAILABILITY, default=None)
 
         # Install action configuration
         self._install_action = config.get(CONF_INSTALL_ACTION, {})
@@ -174,10 +160,10 @@ class TemplateUpdateEntity(UpdateEntity):
     @override
     def entity_picture(self) -> str | None:
         """Return the entity picture."""
-        if not self._entity_picture_template:
+        if not self._entity_pic_template:
             return None
         try:
-            picture = str(self._entity_picture_template.async_render())
+            picture = str(self._entity_pic_template.async_render())
             _LOGGER.debug("Entity %s picture: %s", self._attr_name, picture)
         except (ValueError, TypeError):
             _LOGGER.exception(
@@ -205,6 +191,18 @@ class TemplateUpdateEntity(UpdateEntity):
             return False
         else:
             return available
+
+    def _render_dict_templates(self, data: dict | list | Any) -> dict | list | Any:
+        """Recursively render all templates in a dictionary/list structure."""
+        if isinstance(data, dict):
+            return {
+                key: self._render_dict_templates(value) for key, value in data.items()
+            }
+        if isinstance(data, list):
+            return [self._render_dict_templates(item) for item in data]
+        if isinstance(data, str):
+            return self._render_template(data)
+        return data
 
     def _render_template(self, template_str: str | Template) -> str | None:
         """Render a template string."""
@@ -247,13 +245,6 @@ class TemplateUpdateEntity(UpdateEntity):
             kwargs,
         )
 
-        # Prepare data for action call
-        data = {
-            "version": version,
-            "backup": should_backup,
-            **kwargs,
-        }
-
         # Get the action call configuration
         install_action = self._config.get(CONF_INSTALL_ACTION)
         if install_action is None:
@@ -262,9 +253,33 @@ class TemplateUpdateEntity(UpdateEntity):
             )
             return
 
+        # Render the action template
         action = self._render_template(install_action["action"])
         if not action:
             _LOGGER.error("Entity %s failed to render install action", self._attr_name)
+            return
+
+        # Prepare data for action call, merging install_action data with
+        # function parameters
+        template_data = install_action.get("data", {})
+        rendered_data = self._render_dict_templates(template_data)
+
+        # Merge with the input parameters
+        data = {
+            "version": version,
+            "backup": should_backup,
+            **kwargs,
+        }
+
+        if type(rendered_data) is dict:
+            data.update(rendered_data)
+        else:
+            _LOGGER.error(
+                "Entity %s rendered install_action data must remain a dictionary,"
+                " got %s",
+                self._attr_name,
+                type(rendered_data).__name__,
+            )
             return
 
         # Call the action
@@ -277,25 +292,3 @@ class TemplateUpdateEntity(UpdateEntity):
             data,
         )
         await self.hass.services.async_call(domain, action_name, data)
-
-
-async def async_setup_platform(
-    _hass: HomeAssistant,
-    _config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up template update platform."""
-    if discovery_info is None:
-        _LOGGER.debug("No discovery info provided")
-        return
-
-    if "entities" not in discovery_info:
-        _LOGGER.debug("No entities in discovery info")
-        return
-
-    _LOGGER.debug(
-        "Setting up template update platform with entities: %s",
-        discovery_info["entities"],
-    )
-    async_add_entities(discovery_info["entities"])
