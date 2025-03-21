@@ -18,6 +18,7 @@ from homeassistant.helpers.template import Template
 from .const import (
     CONF_AUTO_UPDATE,
     CONF_AVAILABILITY,
+    CONF_ELEMENTS,
     CONF_ENTITY_PICTURE,
     CONF_FOR_EACH,
     CONF_INSTALL_ACTION,
@@ -60,8 +61,25 @@ TEMPLATE_UPDATE_ITEM_SCHEMA = vol.Schema(
     }
 )
 
+TEMPLATE_UPDATE_FOR_EACH_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_FOR_EACH): vol.Schema(
+            {
+                vol.Required(CONF_ELEMENTS): vol.All(cv.ensure_list, [dict]),
+                vol.Required(CONF_UPDATE): TEMPLATE_UPDATE_ITEM_SCHEMA,
+            }
+        )
+    }
+)
+
+
 CONFIG_SCHEMA = vol.Schema(
-    {DOMAIN: vol.All(cv.ensure_list, [TEMPLATE_UPDATE_ITEM_SCHEMA])},
+    {
+        DOMAIN: vol.All(
+            cv.ensure_list,
+            [vol.Or(TEMPLATE_UPDATE_ITEM_SCHEMA, TEMPLATE_UPDATE_FOR_EACH_SCHEMA)],
+        )
+    },
     extra=vol.ALLOW_EXTRA,
 )
 
@@ -115,17 +133,17 @@ def _create_entity_from_config(
 
 
 def _process_for_each_config(
-    hass: HomeAssistant, for_each_items: list, update_template: dict
+    hass: HomeAssistant, loop_elements: list, update_template: dict
 ) -> list[TemplateUpdateEntity]:
     """Process a for_each configuration, creating entities for each item."""
     entities = []
     _LOGGER.debug(
         "Processing for_each configuration with %d items and template: %s",
-        len(for_each_items),
+        len(loop_elements),
         update_template,
     )
 
-    for item in for_each_items:
+    for item in loop_elements:
         _LOGGER.debug("Processing for_each item: %s", item)
         template_vars = {"item": item}
 
@@ -177,10 +195,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     for update_config in domain_config:
         if CONF_FOR_EACH in update_config:
             # Handle for_each configuration
+            for_each_node = update_config[CONF_FOR_EACH]
             for_each_entities = _process_for_each_config(
                 hass,
-                update_config[CONF_FOR_EACH],
-                update_config[CONF_UPDATE],
+                for_each_node[CONF_ELEMENTS],
+                for_each_node[CONF_UPDATE],
             )
             entities.extend(for_each_entities)
         else:
