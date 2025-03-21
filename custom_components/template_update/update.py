@@ -58,34 +58,37 @@ class TemplateUpdateEntity(UpdateEntity):
             "Entity %s auto_update: %s", self._attr_name, self._attr_auto_update
         )
 
+        def config_template(key: str) -> Template:
+            return Template(str(config[key] or ""))
+
         # Set up templates
         _LOGGER.debug("Setting up templates for entity %s", self._attr_name)
-        self._installed_version_template = Template(config[CONF_INSTALLED_VERSION])
+        self._installed_version_template = config_template(CONF_INSTALLED_VERSION)
         self._installed_version_template.hass = hass
 
-        self._latest_version_template = Template(config[CONF_LATEST_VERSION])
+        self._latest_version_template = config_template(CONF_LATEST_VERSION)
         self._latest_version_template.hass = hass
 
         if CONF_RELEASE_NOTES in config:
-            self._release_notes_template = Template(config[CONF_RELEASE_NOTES])
+            self._release_notes_template = config_template(CONF_RELEASE_NOTES)
             self._release_notes_template.hass = hass
         else:
             self._release_notes_template = None
 
         if CONF_TITLE in config:
-            self._title_template = Template(config[CONF_TITLE])
+            self._title_template = config_template(CONF_TITLE)
             self._title_template.hass = hass
         else:
             self._title_template = None
 
         if CONF_ENTITY_PICTURE in config:
-            self._entity_picture_template = Template(config[CONF_ENTITY_PICTURE])
+            self._entity_picture_template = config_template(CONF_ENTITY_PICTURE)
             self._entity_picture_template.hass = hass
         else:
             self._entity_picture_template = None
 
         if CONF_AVAILABILITY in config:
-            self._availability_template = Template(config[CONF_AVAILABILITY])
+            self._availability_template = config_template(CONF_AVAILABILITY)
             self._availability_template.hass = hass
         else:
             self._availability_template = None
