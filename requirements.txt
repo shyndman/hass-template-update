@@ -117,7 +117,7 @@ bluetooth-data-tools==1.26.1
     # via
     #   -r requirements.txt
     #   habluetooth
-boto3==1.37.14
+boto3==1.37.19
     # via
     #   -r requirements.txt
     #   pycognito
