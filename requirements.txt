@@ -59,7 +59,7 @@ astral==2.2
     # via
     #   -r requirements.txt
     #   homeassistant
-async-interrupt==1.2.0
+async-interrupt==1.2.2
     # via
     #   -r requirements.txt
     #   habluetooth
