@@ -421,7 +421,7 @@ usb-devices==0.4.5
     #   -r requirements.txt
     #   bluetooth-adapters
     #   bluetooth-auto-recovery
-uv==0.5.21
+uv==0.6.9
     # via
     #   -r requirements.txt
     #   homeassistant
