@@ -335,7 +335,7 @@ python-slugify==8.0.4
     # via
     #   -r requirements.txt
     #   homeassistant
-pytz==2025.1
+pytz==2025.2
     # via
     #   -r requirements.txt
     #   acme
