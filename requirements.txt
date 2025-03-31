@@ -27,7 +27,7 @@ aiohttp==3.11.12
     #   hass-nabucasa
     #   homeassistant
     #   snitun
-aiohttp-asyncmdnsresolver==0.1.0
+aiohttp-asyncmdnsresolver==0.1.1
     # via
     #   -r requirements.txt
     #   homeassistant
