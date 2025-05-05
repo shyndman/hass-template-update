@@ -31,7 +31,7 @@ aiohttp-asyncmdnsresolver==0.1.1
     # via
     #   -r requirements.txt
     #   homeassistant
-aiohttp-cors==0.7.0
+aiohttp-cors==0.8.1
     # via
     #   -r requirements.txt
     #   homeassistant
