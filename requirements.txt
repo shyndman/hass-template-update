@@ -157,7 +157,7 @@ cronsim==2.6
     # via
     #   -r requirements.txt
     #   homeassistant
-cryptography==44.0.2
+cryptography==44.0.3
     # via
     #   -r requirements.txt
     #   acme
