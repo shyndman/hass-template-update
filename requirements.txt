@@ -169,7 +169,7 @@ cryptography==44.0.2
     #   pyopenssl
     #   securetar
     #   snitun
-dbus-fast==2.39.6
+dbus-fast==2.44.1
     # via
     #   -r requirements.txt
     #   bleak
