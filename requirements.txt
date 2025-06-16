@@ -130,7 +130,7 @@ btsocket==0.3.0
     # via
     #   -r requirements.txt
     #   bluetooth-auto-recovery
-certifi==2025.1.31
+certifi==2025.6.15
     # via
     #   -r requirements.txt
     #   homeassistant
